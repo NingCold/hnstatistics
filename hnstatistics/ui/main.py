@@ -4,8 +4,12 @@ from tkinter import ttk, messagebox
 from tkinter import simpledialog
 from tkinter import filedialog
 
+from hnstatistics.core.config.config_dialog import ConfigDialog
+from hnstatistics.core.config.app_config import AppConfig
 from hnstatistics.core.db import init_db
+from hnstatistics.core.path import APP_ROOT, ensure_dir, get_default_save_dir
 from hnstatistics.core.project import Project
+from hnstatistics.core.config.config_service import ConfigService
 from hnstatistics.core.services.project_service import ProjectService
 from hnstatistics.core.errors import HNStatisticsError
 from hnstatistics.core.services.statistics_service import StatisticsService
@@ -31,10 +35,14 @@ class UIState:
         self.last_analyzed_mode: CommitMode = CommitMode.OVERWRITE
         self.analyze_options: AnalyzeOptions = AnalyzeOptions()
 
+CONFIG_PATH = APP_ROOT / "myconfig" / "app_config.json"
+
 ui = {}
 state = UIState()
 project_service = ProjectService()
 statistics_service = StatisticsService()
+config_service = ConfigService(CONFIG_PATH)
+app_config = config_service.load()
 
 def refresh_project_list(projects=None):
     tree = ui['project_tree']
@@ -273,6 +281,14 @@ def command_commit():
     except HNStatisticsError as e:
         messagebox.showerror("Error", str(e))
 
+def command_open_preferences():
+    def on_save():
+        ConfigService(CONFIG_PATH).save(app_config)
+        apply_config()
+    
+    ConfigDialog(ui["root"], app_config, on_save=on_save)
+    set_status("Preferences saved")
+
 def command_undo():
     if not state.draft:
         messagebox.showwarning("Warning", "No project opened")
@@ -301,6 +317,8 @@ def build_menu_bar(parent):
     file_menu.add_command(label="Open Project", command=command_open_project)
     file_menu.add_command(label="Export...", command=on_export_project)
     file_menu.add_separator()
+    file_menu.add_command(label="Preferences", command=command_open_preferences)
+    file_menu.add_separator()
     file_menu.add_command(label="Exit", command=parent.quit)
     
     edit_menu = tk.Menu(menubar, tearoff=0)
@@ -313,17 +331,17 @@ def build_menu_bar(parent):
     menubar.add_cascade(label="Analyze", menu=analyze_menu)
     analyze_menu.add_command(label="Analyze Text", command=command_analyze)
 
-def build_project_panel(parent):
+def build_project_panel(parent, font):
     frame = ttk.Frame(parent, width=220)
     
     ttk.Label(
         frame,
         text = "Projects",
-        font=("Segoe UI", 11, "bold")
+        font=font
     ).pack(anchor="w", padx=8, pady=(8, 4))
     
     search_var = tk.StringVar()
-    search = ttk.Entry(frame, textvariable=search_var)
+    search = ttk.Entry(frame, textvariable=search_var, font=font)
     search.pack(fill="x", padx=8, pady=4)
     search.bind("<Escape>", on_search_escape)
     
@@ -354,8 +372,8 @@ def build_project_panel(parent):
     ui['project_tree'] = tree
     return frame
 
-def build_project_context_menu(parent):
-    menu = tk.Menu(parent, tearoff=0)
+def build_project_context_menu(parent, font):
+    menu = tk.Menu(parent, tearoff=0, font=font)
     
     menu.add_command(label="Open", command=command_open_project)
     menu.add_command(label="Create", command=command_create_project)
@@ -366,16 +384,16 @@ def build_project_context_menu(parent):
 
     ui["project_menu"] = menu
 
-def build_editor_panel(parent):
+def build_editor_panel(parent, font):
     frame = ttk.Frame(parent)
     
     ttk.Label(
         frame,
         text="Input Text",
-        font=("Segoe UI", 10, "bold")
+        font=font
     ).pack(anchor="w", padx=8, pady=4)
     
-    text = tk.Text(frame, height=8)
+    text = tk.Text(frame, height=8, font=font)
     text.pack(fill="both", expand=True, padx=8, pady=4)
     
     ui["input_text"] = text
@@ -401,18 +419,18 @@ def build_editor_panel(parent):
     
     return frame
 
-def build_result_panel(parent):
+def build_result_panel(parent, font):
     frame = ttk.Frame(parent)
     
     ttk.Label(
         frame,
         text="Results",
-        font=("Segoe UI", 10, "bold")
+        font=font
     ).pack(anchor="w", padx=8, pady=4)
     tree = ttk.Treeview(
         frame,
         columns=("item", "freq", "prob"),
-        show="headings"
+        show="headings",
     )
     
     tree.heading("item", text="Item", command=lambda: sort_result_tree("item"))
@@ -425,7 +443,7 @@ def build_result_panel(parent):
     update_result_tree_headers()
     return frame
 
-def build_status_bar(parent):
+def build_status_bar(parent, font):
     ui['status_bar'] = tk.StringVar(value="HNStatistics - Ready")
     status = ttk.Label(
         parent,
@@ -528,9 +546,12 @@ def on_export_project():
         messagebox.showwarning("Warning", "Please select a project first.")
         return
     
+    initialdir = ensure_dir(get_default_save_dir(app_config))
+    
     file_path = filedialog.asksaveasfilename(
         title="Export Project",
         initialfile=f"{project.name}",
+        initialdir=initialdir,
         defaultextension=".xlsx",
         filetypes=[
             ("Excel Files", "*.xlsx"),
@@ -551,6 +572,11 @@ def on_export_project():
     except HNStatisticsError as e:
         messagebox.showerror("Error", str(e))
         set_status("Export failed")
+
+def apply_config():
+    default_font = (app_config.font_family, app_config.font_size, app_config.font_weight)
+    root = ui['result_tree'].winfo_toplevel()
+    root.option_add("*Font", default_font)
 
 def on_star_option_change():
     star_var = ui["star_option_var"]
@@ -575,25 +601,30 @@ def main():
     root.title("HNStatistics")
     root.geometry("900x600")
     
+    ui['root'] = root
+    
+    text_font = (app_config.font_family, app_config.font_size, app_config.font_weight)
+    root.option_add("*Font", text_font)
+    
     build_menu_bar(root)
     
     h_paned = ttk.PanedWindow(root, orient="horizontal")
     h_paned.pack(fill="both", expand=True)
     
-    project_panel = build_project_panel(h_paned)
+    project_panel = build_project_panel(h_paned, text_font)
     h_paned.add(project_panel, weight=1)
     
     v_paned = ttk.PanedWindow(h_paned, orient="vertical")
     h_paned.add(v_paned, weight=4)
     
-    editor_panel = build_editor_panel(v_paned)
-    result_panel = build_result_panel(v_paned)
+    editor_panel = build_editor_panel(v_paned, text_font)
+    result_panel = build_result_panel(v_paned, text_font)
     
     v_paned.add(editor_panel, weight=2)
     v_paned.add(result_panel, weight=3)
     
-    build_project_context_menu(root)
-    build_status_bar(root)
+    build_project_context_menu(root, text_font)
+    build_status_bar(root, text_font)
     
     refresh_project_list()
     
