@@ -1,5 +1,6 @@
 from copy import deepcopy
 from hnstatistics.core.project import Project
+from hnstatistics.core.statistics.analyze_options import AnalyzeOptions
 from hnstatistics.core.statistics.commit_mode import CommitMode
 from hnstatistics.core.statistics.draft import DraftStatistics
 from hnstatistics.core.statistics.model import StatisticsModel
@@ -10,9 +11,9 @@ class StatisticsService:
     def create_draft(self):
         return DraftStatistics()
 
-    def analyze_draft(self, draft: DraftStatistics, text: str):
+    def analyze_draft(self, draft: DraftStatistics, text: str, options: AnalyzeOptions = AnalyzeOptions()):
         draft.snapshot()
-        draft.current.analyze(text)
+        draft.current.analyze(text, options)
 
     def merge_draft(self, draft: DraftStatistics, new_stats: StatisticsModel):
         draft.snapshot()
@@ -43,7 +44,7 @@ class StatisticsService:
     def overwrite_statistics(self, base_stats: StatisticsModel, new_stats: StatisticsModel):
         base_stats.overwrite(new_stats.frequency)
     
-    def analyze_text(self, text: str) -> StatisticsModel:
+    def analyze_text(self, text: str, options: AnalyzeOptions = AnalyzeOptions()) -> StatisticsModel:
         stats = StatisticsModel()
-        stats.analyze(text)
+        stats.analyze(text, options)
         return stats

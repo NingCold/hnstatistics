@@ -10,7 +10,7 @@ from hnstatistics.core.services.project_service import ProjectService
 from hnstatistics.core.errors import HNStatisticsError
 from hnstatistics.core.services.statistics_service import StatisticsService
 from hnstatistics.core.services.export_service import export_project
-from hnstatistics.core.statistics.algorithms import count_frequencies
+from hnstatistics.core.statistics.analyze_options import AnalyzeOptions
 from hnstatistics.core.statistics.commit_mode import CommitMode
 from hnstatistics.core.statistics.draft import DraftStatistics
 from hnstatistics.core.statistics.model import StatisticsModel
@@ -29,6 +29,7 @@ class UIState:
         self.sort_reverse: bool = True
         self.commit_mode: CommitMode = CommitMode.OVERWRITE
         self.last_analyzed_mode: CommitMode = CommitMode.OVERWRITE
+        self.analyze_options: AnalyzeOptions = AnalyzeOptions()
 
 ui = {}
 state = UIState()
@@ -216,7 +217,7 @@ def command_analyze():
     
     try:
         state.draft = statistics_service.create_draft()
-        statistics_service.analyze_draft(state.draft, text)
+        statistics_service.analyze_draft(state.draft, text, state.analyze_options)
         state.preview_stats = deepcopy(state.draft.current)
         if state.current_project:
             if state.commit_mode == CommitMode.MERGE:
@@ -262,7 +263,7 @@ def command_commit():
         return
     
     try:
-        statistics_service.analyze_draft(state.draft, text)
+        statistics_service.analyze_draft(state.draft, text, state.analyze_options)
         statistics_service.commit(state.current_project, state.draft.current, mode)
         state.preview_stats = deepcopy(state.current_project.stats)
         refresh_result_view()
@@ -378,6 +379,17 @@ def build_editor_panel(parent):
     text.pack(fill="both", expand=True, padx=8, pady=4)
     
     ui["input_text"] = text
+    
+    star_var = tk.BooleanVar(value=False)
+    
+    ttk.Checkbutton(
+        frame,
+        text="Support  ' * '  operation (e.g., '1 * 3' means '1 1 1')",
+        variable=star_var,
+        command=on_star_option_change
+    ).pack(anchor="w", padx=8, pady=4)
+    
+    ui['star_option_var'] = star_var
     
     btn_bar = ttk.Frame(frame)
     btn_bar.pack(fill="x", padx=8, pady=4)
@@ -539,6 +551,11 @@ def on_export_project():
     except HNStatisticsError as e:
         messagebox.showerror("Error", str(e))
         set_status("Export failed")
+
+def on_star_option_change():
+    star_var = ui["star_option_var"]
+    state.analyze_options.enable_star = star_var.get()
+    set_status(f"'*' operation support set to: {state.analyze_options.enable_star}")
 
 def get_selected_index():
     tree = ui['project_tree']

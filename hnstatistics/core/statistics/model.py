@@ -1,5 +1,6 @@
 from hnstatistics.core.statistics.algorithms import calculate_probability, count_frequencies
 from hnstatistics.core.errors import ProjectEmptyError
+from hnstatistics.core.statistics.analyze_options import AnalyzeOptions
 
 class StatisticsModel:
     def __init__(self):
@@ -19,8 +20,8 @@ class StatisticsModel:
         self.frequency = new_freq
         self._recalc()
         
-    def analyze(self, text: str):
-        self.frequency = count_frequencies(text)
+    def analyze(self, text: str, options: AnalyzeOptions):
+        self.frequency = count_frequencies(text, options)
         self.probability = calculate_probability(self.frequency)
     
     def _recalc(self):
