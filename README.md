@@ -53,14 +53,19 @@ File → Preferences
 
 ---
 
-## 项目结构（示例）
+## 项目结构
 
 ```text
 hnstatistics/
 ├─ core/                 # 核心逻辑
-├─ ui/                   
-|    └─ main.py          # 程序入口
-└─ README.md
+|   ├─ config            # 配置相关
+|   ├─ repositores       # repository 层
+|   ├─ services          # service 层
+|   └─ statistics        # 统计运算
+└─ ui/                   
+    └─ main.py           # 程序入口
+
+```
 
 ## 运行方式
 
