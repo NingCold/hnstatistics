@@ -1,0 +1,28 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# Virtual environment
+.venv/
+venv/
+
+# IDE
+.idea/
+.vscode/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Database / runtime files
+*.db
+*.sqlite
+*.log
+
+# Build
+dist/
+build/
+
+# Others
+需求分析.txt
